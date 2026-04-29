@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 
 const FIAT = process.env.FIAT || 'DZD';
 const TARGET_PRICE = parseFloat(process.env.TARGET_PRICE) || 245;
-const SELL_TARGET_PRICE = parseFloat(process.env.SELL_TARGET_PRICE) || 248;
+const SELL_TARGET_PRICE = parseFloat(process.env.SELL_TARGET_PRICE) || 249;
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 5000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME;
