@@ -6,11 +6,11 @@ const PORT = process.env.PORT || 3000;
 const FIAT = process.env.FIAT || 'DZD';
 const TARGET_PRICE = parseFloat(process.env.TARGET_PRICE) || 247;
 const SELL_TARGET_PRICE = parseFloat(process.env.SELL_TARGET_PRICE) || 260;
-const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 5000;
+const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 3000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME;
 const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_MERCHANTS.split(',').map(m => m.trim()) : [];
-const BUY_AMOUNT_DZD = parseFloat(process.env.BUY_AMOUNT_DZD) || 10000;
+const BUY_AMOUNT_DZD = parseFloat(process.env.BUY_AMOUNT_DZD) || 2000;
 const SELL_AMOUNT_DZD = parseFloat(process.env.SELL_AMOUNT_DZD) || 10000;
 
 let alertedBuyAds = new Set();
