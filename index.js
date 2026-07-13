@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 3000;
 const FIAT = process.env.FIAT || 'DZD';
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 3000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME;
+// لقد قمت بإضافة اسم المستخدم الخاص بك هنا مباشرة
+const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME || '@AmadiTosSS';
 const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_MERCHANTS.split(',').map(m => m.trim()) : [];
 const BUY_AMOUNT_DZD = parseFloat(process.env.BUY_AMOUNT_DZD) || 2000;
 
@@ -18,7 +19,7 @@ const TELEGRAM_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 async function sendDiscordAlert(ad) {
     if (!DISCORD_WEBHOOK_URL) return;
 
-    const content = `🚨 **تنبيه فرصة ذهبية: سعر شراء USDT أقل من السوق بـ 10% أو أكثر!** 🚨\n@everyone`;
+    const content = `🚨 **تنبيه فرصة ذهبية: سعر شراء USDT أقل من السوق بنسبة (1% إلى 10%)!** 🚨\n@everyone`;
     const titleDesc = `السعر المعروض للبيع: ${ad.adv.price} DZD`;
     const color = 5814783; // Blue
     const url = "https://p2p.binance.com/en/trade/all-payments/USDT?fiat=DZD";
@@ -118,12 +119,13 @@ async function checkBinanceP2P_BUY() {
             }
             const marketAverage = totalPrice / json.data.length;
 
-            // 2. السعر المستهدف هو أقل بـ 10% من هذا المتوسط
-            const dynamicTargetPrice = marketAverage * 0.90;
+            // 2. تحديد مجال الأسعار المقبول (بين -1% و -10%)
+            const maxPriceAllowed = marketAverage * 0.99; // أقل بـ 1% (الحد الأعلى للشراء)
+            const minPriceAllowed = marketAverage * 0.90; // أقل بـ 10% (الحد الأدنى للشراء)
 
-            console.log(`[${new Date().toLocaleTimeString()}] Market Avg: ${marketAverage.toFixed(2)} DZD | Target (-10%): <= ${dynamicTargetPrice.toFixed(2)} DZD`);
+            console.log(`[${new Date().toLocaleTimeString()}] Market Avg: ${marketAverage.toFixed(2)} DZD | Target Range: [${minPriceAllowed.toFixed(2)} - ${maxPriceAllowed.toFixed(2)}] DZD`);
 
-            // 3. التحقق مما إذا كان هناك عرض يحقق شرط الـ -10%
+            // 3. التحقق مما إذا كان هناك عرض ضمن هذا المجال
             for (const ad of json.data) {
                 const price = parseFloat(ad.adv.price);
                 const advNo = ad.adv.advNo;
@@ -137,9 +139,10 @@ async function checkBinanceP2P_BUY() {
                 const maxLimit = parseFloat(ad.adv.dynamicMaxSingleTransAmount);
                 if (BUY_AMOUNT_DZD > maxLimit) continue; 
 
-                if (price <= dynamicTargetPrice) {
+                // شرط التطابق: السعر أصغر أو يساوي الحد الأعلى، وأكبر أو يساوي الحد الأدنى
+                if (price <= maxPriceAllowed && price >= minPriceAllowed) {
                     if (!alertedBuyAds.has(advNo)) {
-                        console.log(`\n!!! MATCH FOUND (-10%) !!! Price: ${price} DZD by ${nickName}`);
+                        console.log(`\n!!! MATCH FOUND (1% - 10% Drop) !!! Price: ${price} DZD by ${nickName}`);
                         alertedBuyAds.add(advNo);
                         await sendDiscordAlert(ad);
                         await makeTelegramCall(ad);
@@ -165,7 +168,7 @@ setInterval(loop, CHECK_INTERVAL_MS);
 loop(); // initial run
 
 app.get('/', (req, res) => {
-    res.send('Binance P2P Bot is running and monitoring for 10% drops below market average!');
+    res.send('Binance P2P Bot is running and monitoring for 1%-10% drops below market average!');
 });
 
 app.listen(PORT, () => {
