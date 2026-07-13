@@ -6,8 +6,10 @@ const PORT = process.env.PORT || 3000;
 const FIAT = process.env.FIAT || 'DZD';
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 3000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-// لقد قمت بإضافة اسم المستخدم الخاص بك هنا مباشرة
-const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME || '@AmadiTosSS';
+
+// قائمة بأسماء المستخدمين الذين سيتم الاتصال بهم (أنت وصديقك)
+const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
+
 const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_MERCHANTS.split(',').map(m => m.trim()) : [];
 const BUY_AMOUNT_DZD = parseFloat(process.env.BUY_AMOUNT_DZD) || 2000;
 
@@ -61,10 +63,8 @@ async function sendDiscordAlert(ad) {
     }
 }
 
-// Function to make Telegram Voice Call via CallMeBot
-async function makeTelegramCall(ad) {
-    if (!TELEGRAM_USERNAME || TELEGRAM_USERNAME === '@your_username') return;
-
+// Function to make Telegram Voice Calls
+async function makeTelegramCalls(ad) {
     const now = Date.now();
     if (now - lastTelegramCallTime < TELEGRAM_COOLDOWN_MS) {
         console.log(`[Telegram] Skipping call to avoid rate limit (2m cooldown).`);
@@ -76,18 +76,24 @@ async function makeTelegramCall(ad) {
         `Alert. Binance P 2 P USDT buy price is ${ad.adv.price} D Z D.`
     );
 
-    const url = `http://api.callmebot.com/start.php?user=${TELEGRAM_USERNAME}&text=${textToSpeak}&lang=en-GB-Standard-B&rpt=2`;
+    // الاتصال بكل الأشخاص الموجودين في القائمة واحداً تلو الآخر
+    for (const username of TELEGRAM_USERNAMES) {
+        const url = `http://api.callmebot.com/start.php?user=${username}&text=${textToSpeak}&lang=en-GB-Standard-B&rpt=2`;
 
-    try {
-        const response = await fetch(url);
-        await response.text();
-        console.log(`[CallMeBot] Telegram Call API answered: ${response.status}`);
-    } catch (error) {
-        console.error("CallMeBot Telegram Error:", error);
+        try {
+            const response = await fetch(url);
+            await response.text();
+            console.log(`[CallMeBot] Called ${username}. Status: ${response.status}`);
+        } catch (error) {
+            console.error(`CallMeBot Telegram Error for ${username}:`, error);
+        }
+        
+        // انتظار ثانيتين بين المكالمة والأخرى لتجنب الحظر من الخادم
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
 
-// Function to check Buying context (Advertisers who are selling USDT)
+// Function to check Buying context
 async function checkBinanceP2P_BUY() {
     try {
         const payload = {
@@ -112,20 +118,20 @@ async function checkBinanceP2P_BUY() {
         const json = await response.json();
 
         if (json.data && json.data.length > 0) {
-            // 1. حساب متوسط السعر لأول 10 عروض (لحساب متوسط السوق الحالي)
+            // 1. حساب متوسط السوق
             let totalPrice = 0;
             for (const ad of json.data) {
                 totalPrice += parseFloat(ad.adv.price);
             }
             const marketAverage = totalPrice / json.data.length;
 
-            // 2. تحديد مجال الأسعار المقبول (بين -1% و -10%)
-            const maxPriceAllowed = marketAverage * 0.99; // أقل بـ 1% (الحد الأعلى للشراء)
-            const minPriceAllowed = marketAverage * 0.90; // أقل بـ 10% (الحد الأدنى للشراء)
+            // 2. النطاق المستهدف [1% إلى 10%]
+            const maxPriceAllowed = marketAverage * 0.99; 
+            const minPriceAllowed = marketAverage * 0.90; 
 
             console.log(`[${new Date().toLocaleTimeString()}] Market Avg: ${marketAverage.toFixed(2)} DZD | Target Range: [${minPriceAllowed.toFixed(2)} - ${maxPriceAllowed.toFixed(2)}] DZD`);
 
-            // 3. التحقق مما إذا كان هناك عرض ضمن هذا المجال
+            // 3. التحقق من العروض
             for (const ad of json.data) {
                 const price = parseFloat(ad.adv.price);
                 const advNo = ad.adv.advNo;
@@ -139,15 +145,14 @@ async function checkBinanceP2P_BUY() {
                 const maxLimit = parseFloat(ad.adv.dynamicMaxSingleTransAmount);
                 if (BUY_AMOUNT_DZD > maxLimit) continue; 
 
-                // شرط التطابق: السعر أصغر أو يساوي الحد الأعلى، وأكبر أو يساوي الحد الأدنى
                 if (price <= maxPriceAllowed && price >= minPriceAllowed) {
                     if (!alertedBuyAds.has(advNo)) {
                         console.log(`\n!!! MATCH FOUND (1% - 10% Drop) !!! Price: ${price} DZD by ${nickName}`);
                         alertedBuyAds.add(advNo);
-                        await sendDiscordAlert(ad);
-                        await makeTelegramCall(ad);
                         
-                        // إزالة التنبيه بعد 30 دقيقة في حال تم نشر نفس الإعلان مرة أخرى
+                        await sendDiscordAlert(ad);
+                        await makeTelegramCalls(ad); // استدعاء دالة الاتصال المزدوج
+                        
                         setTimeout(() => alertedBuyAds.delete(advNo), 30 * 60 * 1000);
                     }
                     break;
@@ -165,7 +170,7 @@ async function loop() {
 }
 
 setInterval(loop, CHECK_INTERVAL_MS);
-loop(); // initial run
+loop(); 
 
 app.get('/', (req, res) => {
     res.send('Binance P2P Bot is running and monitoring for 1%-10% drops below market average!');
