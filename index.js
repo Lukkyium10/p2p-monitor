@@ -1,26 +1,35 @@
-require('dotenv').config();
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const FIAT = process.env.FIAT || 'DZD';
-const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 3000;
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-// تم دمج اسمك واسم صديقك هنا مباشرة
+// ================= الإعدادات =================
+const FIAT = 'DZD';
+const CHECK_INTERVAL_MS = 3000; // يفحص كل 3 ثواني
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1526654792657535098/H6MhI-A-MMgRCB4RCJshXU_nwsBXtB80WGOVPAIxGYdQ_Bbu42pAm-I5DADXNS9ZyKqp";
 const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
-const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_MERCHANTS.split(',').map(m => m.trim()) : [];
+
+// القائمة السوداء للتجار المحظورين
+const IGNORED_MERCHANTS = [
+    '1X_VIP', 
+    'Benkidz', 
+    'tahaboooo'
+];
+// ===============================================
 
 let alertedBuyAds = new Set();
 let lastTelegramCallTime = 0;
-const TELEGRAM_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const TELEGRAM_COOLDOWN_MS = 2 * 60 * 1000; 
 
 // 1. دالة إرسال الإشعار إلى الديسكورد
 async function sendDiscordAlert(ad) {
-    if (!DISCORD_WEBHOOK_URL) return;
+    if (!DISCORD_WEBHOOK_URL) {
+        console.log("⚠️ [Discord] رابط الديسكورد غير موجود!");
+        return;
+    }
 
     const content = `🚨 **تنبيه فرصة ذهبية: سعر شراء USDT أقل من السوق بنسبة (1% إلى 10%)!** 🚨\n@everyone`;
     const titleDesc = `السعر المعروض للبيع: ${ad.adv.price} DZD`;
-    const color = 5814783; // أزرق
+    const color = 5814783; 
     const url = "https://p2p.binance.com/en/trade/all-payments/USDT?fiat=DZD";
 
     const message = {
@@ -83,7 +92,6 @@ async function makeTelegramCalls(ad) {
             console.error(`CallMeBot Telegram Error for ${username}:`, error);
         }
         
-        // انتظار ثانيتين بين اتصالك واتصال صديقك لتجنب الحظر
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
@@ -101,7 +109,7 @@ async function checkBinanceP2P_BUY() {
             "proMerchantAds": false,
             "shieldMerchantAds": false,
             "publisherType": null,
-            "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"] // يمكنك تعديل طرق الدفع هنا
+            "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"] 
         };
 
         const response = await fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search', {
@@ -131,17 +139,16 @@ async function checkBinanceP2P_BUY() {
                 const advNo = ad.adv.advNo;
                 const nickName = ad.advertiser.nickName;
 
+                // تجاهل التجار المحظورين
                 if (IGNORED_MERCHANTS.includes(nickName)) continue;
 
                 const maxLimit = parseFloat(ad.adv.dynamicMaxSingleTransAmount);
                 const surplus = parseFloat(ad.adv.surplusAmount);
                 
-                // تجاهل العرض فقط إذا كانت الكمية المتوفرة لا تستحق (أقل من 5000 دج وأقل من 20 دولار)
+                // تجاهل العرض إذا كانت الكمية المتوفرة لا تستحق (أقل من 5000 دج وأقل من 20 دولار)
                 if (maxLimit < 5000 && surplus < 20) {
                     continue; 
                 }
-
-                // تم حذف شرط الميزانية (الحد الأدنى للتاجر) نهائياً
 
                 // شرط السعر الذهبي
                 if (price <= maxPriceAllowed && price >= minPriceAllowed) {
