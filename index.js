@@ -6,24 +6,21 @@ const PORT = process.env.PORT || 3000;
 const FIAT = process.env.FIAT || 'DZD';
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS) || 3000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-
-// قائمة بأسماء المستخدمين الذين سيتم الاتصال بهم (أنت وصديقك)
+// تم دمج اسمك واسم صديقك هنا مباشرة
 const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
-
 const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_MERCHANTS.split(',').map(m => m.trim()) : [];
-const BUY_AMOUNT_DZD = parseFloat(process.env.BUY_AMOUNT_DZD) || 2000;
 
 let alertedBuyAds = new Set();
 let lastTelegramCallTime = 0;
 const TELEGRAM_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 
-// Function to send Discord webhook message
+// 1. دالة إرسال الإشعار إلى الديسكورد
 async function sendDiscordAlert(ad) {
     if (!DISCORD_WEBHOOK_URL) return;
 
     const content = `🚨 **تنبيه فرصة ذهبية: سعر شراء USDT أقل من السوق بنسبة (1% إلى 10%)!** 🚨\n@everyone`;
     const titleDesc = `السعر المعروض للبيع: ${ad.adv.price} DZD`;
-    const color = 5814783; // Blue
+    const color = 5814783; // أزرق
     const url = "https://p2p.binance.com/en/trade/all-payments/USDT?fiat=DZD";
 
     const message = {
@@ -53,8 +50,7 @@ async function sendDiscordAlert(ad) {
         });
 
         if (!response.ok) {
-            const errText = await response.text();
-            console.error(`[Discord] Webhook Error ${response.status}: ${errText}`);
+            console.error(`[Discord] Webhook Error ${response.status}`);
         } else {
             console.log(`[Discord] Alert sent for BUY ad: ${ad.adv.advNo}`);
         }
@@ -63,7 +59,7 @@ async function sendDiscordAlert(ad) {
     }
 }
 
-// Function to make Telegram Voice Calls
+// 2. دالة الاتصال المزدوج على تليجرام
 async function makeTelegramCalls(ad) {
     const now = Date.now();
     if (now - lastTelegramCallTime < TELEGRAM_COOLDOWN_MS) {
@@ -76,7 +72,6 @@ async function makeTelegramCalls(ad) {
         `Alert. Binance P 2 P USDT buy price is ${ad.adv.price} D Z D.`
     );
 
-    // الاتصال بكل الأشخاص الموجودين في القائمة واحداً تلو الآخر
     for (const username of TELEGRAM_USERNAMES) {
         const url = `http://api.callmebot.com/start.php?user=${username}&text=${textToSpeak}&lang=en-GB-Standard-B&rpt=2`;
 
@@ -88,12 +83,12 @@ async function makeTelegramCalls(ad) {
             console.error(`CallMeBot Telegram Error for ${username}:`, error);
         }
         
-        // انتظار ثانيتين بين المكالمة والأخرى لتجنب الحظر من الخادم
+        // انتظار ثانيتين بين اتصالك واتصال صديقك لتجنب الحظر
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
 
-// Function to check Buying context
+// 3. دالة فحص السوق
 async function checkBinanceP2P_BUY() {
     try {
         const payload = {
@@ -106,7 +101,7 @@ async function checkBinanceP2P_BUY() {
             "proMerchantAds": false,
             "shieldMerchantAds": false,
             "publisherType": null,
-            "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"]
+            "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"] // يمكنك تعديل طرق الدفع هنا
         };
 
         const response = await fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search', {
@@ -118,20 +113,19 @@ async function checkBinanceP2P_BUY() {
         const json = await response.json();
 
         if (json.data && json.data.length > 0) {
-            // 1. حساب متوسط السوق
+            // حساب متوسط السوق
             let totalPrice = 0;
             for (const ad of json.data) {
                 totalPrice += parseFloat(ad.adv.price);
             }
             const marketAverage = totalPrice / json.data.length;
 
-            // 2. النطاق المستهدف [1% إلى 10%]
+            // تحديد النطاق (أقل بـ 1% كحد أعلى، وأقل بـ 10% كحد أدنى)
             const maxPriceAllowed = marketAverage * 0.99; 
             const minPriceAllowed = marketAverage * 0.90; 
 
             console.log(`[${new Date().toLocaleTimeString()}] Market Avg: ${marketAverage.toFixed(2)} DZD | Target Range: [${minPriceAllowed.toFixed(2)} - ${maxPriceAllowed.toFixed(2)}] DZD`);
 
-            // 3. التحقق من العروض
             for (const ad of json.data) {
                 const price = parseFloat(ad.adv.price);
                 const advNo = ad.adv.advNo;
@@ -139,19 +133,24 @@ async function checkBinanceP2P_BUY() {
 
                 if (IGNORED_MERCHANTS.includes(nickName)) continue;
 
-                const minLimit = parseFloat(ad.adv.minSingleTransAmount);
-                if (BUY_AMOUNT_DZD < minLimit) continue; 
-
                 const maxLimit = parseFloat(ad.adv.dynamicMaxSingleTransAmount);
-                if (BUY_AMOUNT_DZD > maxLimit) continue; 
+                const surplus = parseFloat(ad.adv.surplusAmount);
+                
+                // تجاهل العرض فقط إذا كانت الكمية المتوفرة لا تستحق (أقل من 5000 دج وأقل من 20 دولار)
+                if (maxLimit < 5000 && surplus < 20) {
+                    continue; 
+                }
 
+                // تم حذف شرط الميزانية (الحد الأدنى للتاجر) نهائياً
+
+                // شرط السعر الذهبي
                 if (price <= maxPriceAllowed && price >= minPriceAllowed) {
                     if (!alertedBuyAds.has(advNo)) {
                         console.log(`\n!!! MATCH FOUND (1% - 10% Drop) !!! Price: ${price} DZD by ${nickName}`);
                         alertedBuyAds.add(advNo);
                         
                         await sendDiscordAlert(ad);
-                        await makeTelegramCalls(ad); // استدعاء دالة الاتصال المزدوج
+                        await makeTelegramCalls(ad); 
                         
                         setTimeout(() => alertedBuyAds.delete(advNo), 30 * 60 * 1000);
                     }
@@ -164,7 +163,7 @@ async function checkBinanceP2P_BUY() {
     }
 }
 
-// Start polling
+// بدء الفحص المتكرر
 async function loop() {
     await checkBinanceP2P_BUY();
 }
