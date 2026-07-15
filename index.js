@@ -8,6 +8,9 @@ const CHECK_INTERVAL_MS = 3000; // يفحص كل 3 ثواني
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1526654792657535098/H6MhI-A-MMgRCB4RCJshXU_nwsBXtB80WGOVPAIxGYdQ_Bbu42pAm-I5DADXNS9ZyKqp";
 const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
 
+// 🔴 الشرط الجديد: الحد الأقصى المطلق للسعر
+const MAX_ABSOLUTE_PRICE = 249; // البوت سيتجاهل أي سعر يساوي أو يفوق 249 مهما كان متوسط السوق
+
 // القائمة السوداء للتجار المحظورين
 const IGNORED_MERCHANTS = [
     '1X_VIP', 
@@ -150,10 +153,10 @@ async function checkBinanceP2P_BUY() {
                     continue; 
                 }
 
-                // شرط السعر الذهبي
-                if (price <= maxPriceAllowed && price >= minPriceAllowed) {
+                // 🔴 شرط السعر الذهبي + أن يكون أقل من الحد الأقصى المطلق (249)
+                if (price <= maxPriceAllowed && price >= minPriceAllowed && price < MAX_ABSOLUTE_PRICE) {
                     if (!alertedBuyAds.has(advNo)) {
-                        console.log(`\n!!! MATCH FOUND (1% - 10% Drop) !!! Price: ${price} DZD by ${nickName}`);
+                        console.log(`\n!!! MATCH FOUND (1% - 10% Drop & < 249) !!! Price: ${price} DZD by ${nickName}`);
                         alertedBuyAds.add(advNo);
                         
                         await sendDiscordAlert(ad);
@@ -179,7 +182,7 @@ setInterval(loop, CHECK_INTERVAL_MS);
 loop(); 
 
 app.get('/', (req, res) => {
-    res.send('Binance P2P Bot is running and monitoring for 1%-10% drops below market average!');
+    res.send('Binance P2P Bot is running and monitoring for drops!');
 });
 
 app.listen(PORT, () => {
