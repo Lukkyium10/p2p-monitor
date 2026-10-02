@@ -9,7 +9,7 @@ const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/152665479265753509
 const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
 
 // 🔴 الشرط الجديد: الحد الأقصى المطلق للسعر
-const MAX_ABSOLUTE_PRICE = 250; // البوت سيتجاهل أي سعر يساوي أو يفوق 249 مهما كان متوسط السوق
+const MAX_ABSOLUTE_PRICE = 251; // البوت سيتجاهل أي سعر يساوي أو يفوق 249 مهما كان متوسط السوق
 
 // القائمة السوداء للتجار المحظورين
 const IGNORED_MERCHANTS = [
