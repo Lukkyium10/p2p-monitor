@@ -4,7 +4,7 @@ const PORT = process.env.PORT || 3000;
 
 // ================= الإعدادات =================
 const FIAT = 'DZD';
-const CHECK_INTERVAL_MS = 3000; // يفحص كل 3 ثواني
+const CHECK_INTERVAL_MS = 2000; // يفحص كل 3 ثواني
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1526654792657535098/H6MhI-A-MMgRCB4RCJshXU_nwsBXtB80WGOVPAIxGYdQ_Bbu42pAm-I5DADXNS9ZyKqp";
 const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
 
