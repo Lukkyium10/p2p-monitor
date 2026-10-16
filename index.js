@@ -2,22 +2,21 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ================= الإعدادات =================
-const FIAT = 'DZD';
-const CHECK_INTERVAL_MS = 2000; // يفحص كل 3 ثواني
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1526654792657535098/H6MhI-A-MMgRCB4RCJshXU_nwsBXtB80WGOVPAIxGYdQ_Bbu42pAm-I5DADXNS9ZyKqp";
-const TELEGRAM_USERNAMES = ['@AmadiTosSS', '@Ggsnigga'];
+// ================= الإعدادات (تُقرأ من Railway مع قيم احتياطية) =================
+const FIAT = process.env.FIAT || 'DZD';
+const CHECK_INTERVAL_MS = Number(process.env.CHECK_INTERVAL_MS) || 2000;
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "";
+const MAX_ABSOLUTE_PRICE = Number(process.env.MAX_ABSOLUTE_PRICE) || 251;
 
-// 🔴 الشرط الجديد: الحد الأقصى المطلق للسعر
-const MAX_ABSOLUTE_PRICE = 251; // البوت سيتجاهل أي سعر يساوي أو يفوق 249 مهما كان متوسط السوق
+// معالجة القوائم (تحويل النص المفصول بفواصل إلى مصفوفة)
+const TELEGRAM_USERNAMES = process.env.TELEGRAM_USERNAMES 
+    ? process.env.TELEGRAM_USERNAMES.split(',').map(s => s.trim()) 
+    : ['@AmadiTosSS', '@Ggsnigga'];
 
-// القائمة السوداء للتجار المحظورين
-const IGNORED_MERCHANTS = [
-    '1X_VIP', 
-    'Benkidz', 
-    'tahaboooo'
-];
-// ===============================================
+const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS 
+    ? process.env.IGNORED_MERCHANTS.split(',').map(s => s.trim()) 
+    : ['1X_VIP', 'Benkidz', 'tahaboooo'];
+// ===============================================================================
 
 let alertedBuyAds = new Set();
 let lastTelegramCallTime = 0;
@@ -26,7 +25,7 @@ const TELEGRAM_COOLDOWN_MS = 2 * 60 * 1000;
 // 1. دالة إرسال الإشعار إلى الديسكورد
 async function sendDiscordAlert(ad) {
     if (!DISCORD_WEBHOOK_URL) {
-        console.log("⚠️ [Discord] رابط الديسكورد غير موجود!");
+        console.log("⚠️ [Discord] رابط الديسكورد غير موجود في متغيرات البيئة!");
         return;
     }
 
@@ -62,9 +61,10 @@ async function sendDiscordAlert(ad) {
         });
 
         if (!response.ok) {
-            console.error(`[Discord] Webhook Error ${response.status}`);
+            const errText = await response.text();
+            console.error(`[Discord] Webhook Error ${response.status}: ${errText}`);
         } else {
-            console.log(`[Discord] Alert sent for BUY ad: ${ad.adv.advNo}`);
+            console.log(`[Discord] Alert sent successfully for BUY ad: ${ad.adv.advNo}`);
         }
     } catch (error) {
         console.error("Discord Webhook Error:", error);
@@ -153,10 +153,10 @@ async function checkBinanceP2P_BUY() {
                     continue; 
                 }
 
-                // 🔴 شرط السعر الذهبي + أن يكون أقل من الحد الأقصى المطلق (249)
+                // 🔴 شرط السعر الذهبي + أن يكون أقل من الحد الأقصى المطلق (MAX_ABSOLUTE_PRICE)
                 if (price <= maxPriceAllowed && price >= minPriceAllowed && price < MAX_ABSOLUTE_PRICE) {
                     if (!alertedBuyAds.has(advNo)) {
-                        console.log(`\n!!! MATCH FOUND (1% - 10% Drop & < 249) !!! Price: ${price} DZD by ${nickName}`);
+                        console.log(`\n!!! MATCH FOUND (1% - 10% Drop & < ${MAX_ABSOLUTE_PRICE}) !!! Price: ${price} DZD by ${nickName}`);
                         alertedBuyAds.add(advNo);
                         
                         await sendDiscordAlert(ad);
