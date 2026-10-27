@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 const FIAT = process.env.FIAT || 'DZD';
 const CHECK_INTERVAL_MS = Number(process.env.CHECK_INTERVAL_MS) || 2000;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "";
-const MAX_ABSOLUTE_PRICE = Number(process.env.MAX_ABSOLUTE_PRICE) || 252;
+const MAX_ABSOLUTE_PRICE = Number(process.env.MAX_ABSOLUTE_PRICE) || 255;
 
 // معالجة القوائم (تحويل النص المفصول بفواصل إلى مصفوفة)
 const TELEGRAM_USERNAMES = process.env.TELEGRAM_USERNAMES 
